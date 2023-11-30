@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>両面神経衰弱 - 二人対戦</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* スタイルをここに追加 */
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      /* 背景画像の設定 */
+      background-image: url('png/back.png');
+      background-size: cover; /* 背景画像を要素全体に表示する */
+    }
+    /* カードのスタイル */
+    .card {
+      width: 100px;
+      height: 150px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      display: inline-block;
+      margin: 5px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 24px;
+      line-height: 150px;
+      perspective: 1000px;
+      position: relative; /* 裏面をオーバーレイするために相対位置指定 */
+      transition: transform 0.3s ease;
+      transform-style: preserve-3d;
+    }
+    .card .face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+    }
+    .card .front {
+      transform: rotateY(0deg);
+      background-color: #f0f0f0;
+      z-index: 2; /* 表を裏面より手前に表示 */
+    }
+    .card .back {
+      z-index: 1; /* 裏を表面より奥に表示 */
+      transform: rotateY(-180deg); /* 裏面を反転 */
+    }
+    .card.flipped {
+      transform: rotateY(-180deg);
+    }
+
+    /* カードの表裏の数字を設定 */
+    .card .front .symbol,
+    .card .back .symbol {
+      display: block;
+      line-height: 150px;
+    }
+
+    /* カード画像のスタイル */
+    .card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: flex; /* 画像を中央に配置するための追加 */
+      justify-content: center; /* 画像を中央に配置するための追加 */
+    }
+    /* 1Pと2Pのスタイル */
+    #player1Score {
+      font-size: 30px;
+      color: red;
+      font-family: 'SAO UI Regular', sans-serif;
+    }
+
+    #player2Score {
+      font-size: 30px;
+      color: blue;
+      font-family: 'SAO UI Regular', sans-serif;
+    }
+    /*ボタンのスタイル*/
+    .button-container {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 300px; /* ボタンのコンテナの最大幅を設定 */
+    }
+    .button {
+      margin: 10px;
+      padding: 8px 16px;
+      font-size: 22px;
+      cursor: pointer;
+       background-color: rgba(0, 0, 255, 0.3); /* 青色の半透明 */
+      border: none; /* ボーダーの削除 */
+      color: white; /* ボタンテキストの色を白に設定 */
+      font-family: 'SAO UI Regular', sans-serif;
+    }
+     /* 追加のスタイル */
+     h1, p, #gameBoard {
+      text-align: center;
+    }
+    #playerInfo {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 300px; /* プレイヤー情報のコンテナの最大幅を設定 */
+    }
+    #player1Info {
+      color: red;
+    position: absolute;
+    font-size: 22px;
+    top: 0;
+    left: 0;
+    margin: 20px;
+  }
+  #player2Info {
+    color: blue;
+    position: absolute;
+    font-size: 22px;
+    top: 0;
+    right: 0;
+    margin: 20px;
+  }
+  #p1color{
+    color:red
+  }
+  #p2color{
+    color:blue
+  }
+  #currentPlayerInfo{
+    font-size: 24px;
+  }
+    h1 {
+      font-family: 'RodinM', sans-serif;
+      font-size: 3em;
+      width: 75%;
+      text-align: center;
+      color: transparent;
+      -webkit-text-stroke: 1px #464646; /* テキストの縁取り */
+      background-image: linear-gradient(to bottom, #fff, #ffffff); /* 白から水色(#00bcd4)へのグラデーション */
+      -webkit-background-clip: text; /* テキストのみにグラデーションを適用 */
+      background-clip: text; /* テキストのみにグラデーションを適用 */
+    }
+    body, html {
+      font-family: 'SAO UI Regular', sans-serif;
+    }
+    
+
+  </style>
+</head>
+<body>
+  <h1>両面神経衰弱</h1>
+  <p id="player1Info">1 Player<br> <span id="player1Score">0</span> cards</p>
+  <p id="player2Info">2 Player<br> <span id="player2Score">0</span> cards</p>
+  <p id="currentPlayerInfo"></p>
+  <p id="vanishedCardsInfo"></p>
+  <div id="gameBoard"></div>
+  <div class="button-container">
+    <!-- 終了ボタン -->
+    <button class="button" onclick="determineWinner()">Finish</button>
+    <!-- リセットボタン -->
+    <button class="button" onclick="resetGame()">Reset</button>
+    <!-- vanished cards ボタン -->
+    <button class="button" onclick="showVanishedCards()">vanished cards</button>
+
+  <script>
+    // トランプの記号
+    const symbols = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    const cardSuits = ['C', 'D', 'H', 'S']; // カードのスート
+    let cards = []; // カードの配列
+    let flippedCards = []; // 裏返されたカードの配列
+    let player1Score = 0; // プレイヤー1の得点
+    let player2Score = 0; // プレイヤー2の得点
+    let currentPlayer = 1; // 現在のプレイヤー
+    let clickEnabled = true; // カードをめくる操作が有効かどうか
+    // 消えたカードのシンボルを取得・保存するオブジェクト
+    let vanishedSymbols = {};
+
+    // ゲームボードを作成する関数
+    function createGameBoard() {
+      const gameBoard = document.getElementById('gameBoard');
+      const frontCards = shuffle([...symbols, ...symbols]); // 表のカードをシャッフル
+      const backCards = shuffle([...symbols, ...symbols]); // 裏のカードをシャッフル
+
+      for (let i = 0; i < symbols.length * 2; i++) {
+
+        const cardElement = document.createElement('div');
+        cardElement.classList.add('card');
+        cardElement.dataset.index = i;
+
+        const frontSymbol = frontCards[i];
+        const backSymbol = backCards[i];
+
+        // 新しいカードを生成する際に、frontSymbolとbackSymbolが同じ場合にresetGame()を呼び出す
+        if (frontSymbol === backSymbol) {
+          resetGame();
+          return; // ゲームをリセットしたら関数を抜ける
+        }
+
+        const suit = cardSuits[Math.floor(Math.random() * cardSuits.length)]; // ランダムなスートを選択
+
+        const frontImg = document.createElement('img');
+        frontImg.src = `png/cards/${suit}${frontSymbol}.png`; // 表面の画像のパス
+        frontImg.alt = `${suit}${frontSymbol}`;
+        frontImg.classList.add('card-image', 'face', 'front');
+
+        const backImg = document.createElement('img');
+        backImg.src = `png/cards/${suit}${backSymbol}.png`; // 裏面の画像のパス
+        backImg.alt = `${suit}${backSymbol}`;
+        backImg.classList.add('card-image', 'face', 'back');
+
+
+        cardElement.appendChild(frontImg);
+        cardElement.appendChild(backImg);
+
+        // カードを作成する際に、frontSymbolとbackSymbolをdata属性に追加する
+        cardElement.dataset.frontSymbol = frontSymbol;
+        cardElement.dataset.backSymbol = backSymbol;
+
+        cardElement.addEventListener('click', () => flipCard(cardElement));
+        gameBoard.appendChild(cardElement);
+        // 7枚ごとに改行を挿入
+        if ((i + 1) % 7 === 0) {
+          gameBoard.appendChild(document.createElement('br'));
+      }
+    }
+  }
+
+    // シャッフルする関数
+    function shuffle(array) {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    }
+
+    // カードをひっくり返す処理
+    function flipCard(card) {
+      if (!clickEnabled || flippedCards.length >= 2) {
+        return;//カードをめくらないようにする
+      }
+
+      //同じカードをクリックした場合
+      if (card.classList.contains('clicked')) {
+        if ( card.classList.contains('flipped')){//裏と表で分ける
+        card.classList.remove('flipped');
+        }else{      
+        card.classList.add('flipped');
+        }
+        card.classList.remove('clicked');
+        setTimeout(() => {}, 500);
+        if (currentPlayer === 1) {
+          currentPlayer = 2;
+          document.getElementById('currentPlayerInfo').innerHTML = 'Turn : <span id="p2color">2 Player</span>';
+        } else {
+          currentPlayer = 1;
+          document.getElementById('currentPlayerInfo').innerHTML = 'Turn : <span id="p1color">1 Player</span>';
+        }
+        flippedCards = [];
+        clickEnabled = true;
+        return;
+      }
+      //違うカードをクリック
+      if ( card.classList.contains('flipped')){//裏と表で分ける
+        card.classList.remove('flipped');
+        card.classList.add('clicked');
+        flippedCards.push(card);
+      }else{      
+        card.classList.add('flipped');
+        card.classList.add('clicked');
+        flippedCards.push(card);
+    }
+
+      if (flippedCards.length === 2) {//二枚めくったら次
+        clickEnabled = false;
+        setTimeout(checkMatch, 500);
+      }
+    }
+    // シンボルをvanishedSymbolsオブジェクトに保存する関数
+function addSymbolToVanished(symbol) {
+  if (!vanishedSymbols[symbol]) {
+    vanishedSymbols[symbol] = 1;
+  } else {
+    vanishedSymbols[symbol]++;
+  }
+}
+    // 消えたカードの情報を表示する関数
+function showVanishedCards() {
+  const vanishedCardsInfo = countVanishedSymbols();
+  document.getElementById('vanishedCardsInfo').textContent = `Vanished Symbols: ${vanishedCardsInfo}`;
+}
+    // 消えたカードのシンボル数をカウントする関数
+function countVanishedSymbols() {
+  let symbolsInfo = '';
+  for (const symbol in vanishedSymbols) {
+    symbolsInfo += `${symbol} × ${vanishedSymbols[symbol]}, `;
+  }
+  return symbolsInfo.slice(0, -2); // 最後のカンマとスペースを削除して返す
+}
+
+    
+    // 2枚のカードが一致するかどうかを確認する処理
+    function checkMatch() {
+      const [card1, card2] = flippedCards;
+      if (card1.classList.contains('flipped')) {
+    // card1がflipped（裏返されている）場合、backの内容を読み取る
+    Symbol1 = card1.dataset.backSymbol;
+    } else {
+    // card1がflippedではない場合、frontの内容を読み取る
+    Symbol1 = card1.dataset.frontSymbol;
+    }
+    if (card2.classList.contains('flipped')) {
+    // card1がflipped（裏返されている）場合、backの内容を読み取る
+    Symbol2 = card2.dataset.backSymbol;
+    } else {
+    // card1がflippedではない場合、frontの内容を読み取る
+    Symbol2 = card2.dataset.frontSymbol;
+    }
+
+      if (Symbol1 === Symbol2) {
+        // カードが一致する場合
+        card1.style.visibility = 'hidden';
+        card2.style.visibility = 'hidden';
+        card1.removeEventListener('click', () => flipCard(card1));
+        card2.removeEventListener('click', () => flipCard(card2));
+
+        // カードが一致した場合に、それぞれのシンボルを取得し保存するサンプルコード
+        const frontSymbol1 = card1.dataset.frontSymbol;
+        const backSymbol1 = card1.dataset.backSymbol;
+        const frontSymbol2 = card2.dataset.frontSymbol;
+        const backSymbol2 = card2.dataset.backSymbol;
+        // シンボルをvanishedSymbolsオブジェクトに保存
+        addSymbolToVanished(frontSymbol1);
+        addSymbolToVanished(backSymbol1);
+        addSymbolToVanished(frontSymbol2);
+        addSymbolToVanished(backSymbol2);
+        if (currentPlayer === 1) {
+          player1Score += 2;
+          document.getElementById('player1Score').textContent = player1Score;
+        } else {
+          player2Score += 2;
+          document.getElementById('player2Score').textContent = player2Score;
+        }
+        if (player1Score + player2Score === symbols.length*2) {
+        setTimeout(determineWinner, 100); // 勝者を決定する
+        }
+      } else {
+        // カードが一致しない場合
+        card1.classList.remove('clicked');
+        card2.classList.remove('clicked');
+
+        if (currentPlayer === 1) {
+          currentPlayer = 2;
+          document.getElementById('currentPlayerInfo').innerHTML = 'Turn : <span id="p2color">2 Player</span>';
+        } else {
+          currentPlayer = 1;
+          document.getElementById('currentPlayerInfo').innerHTML = 'Turn : <span id="p1color">1 Player</span>';
+        }
+      }
+
+      flippedCards = [];
+      clickEnabled = true;
+    }
+
+    // 勝者を決定する処理
+    function determineWinner() {
+      let winner;
+      if (player1Score > player2Score) {
+        winner = 'Player 1 (1P)';
+      } else if (player2Score > player1Score) {
+        winner = 'Player 2 (2P)';
+      } else {
+        winner = 'It\'s a tie!';
+      }
+      document.getElementById('player1Score').textContent = player1Score;
+      document.getElementById('player2Score').textContent = player2Score;
+      alert(`Game Over! The winner is: ${winner}`);
+
+      resetGame()
+    }
+    //ゲームのリセット 
+    function resetGame() {
+      const gameBoard = document.getElementById('gameBoard');
+      gameBoard.innerHTML = ''; // ゲームボードをクリア
+
+      // ゲームの状態をリセット
+      player1Score = 0;
+      player2Score = 0;
+      currentPlayer = 1;
+      clickEnabled = true;
+      flippedCards = [];
+
+      // スコアをリセット
+      document.getElementById('player1Score').textContent = player1Score;
+      document.getElementById('player2Score').textContent = player2Score;
+
+      // 現在のプレイヤーをリセット
+      document.getElementById('currentPlayerInfo').innerHTML = 'Turn : <span id="p1color">1 Player</span>';
+
+      // 新しいゲームボードを作成してゲームを再開する
+      createGameBoard();
+    }
+   
+
+    // ゲームボードを作成してゲームを開始する
+    createGameBoard();
+    // テキストコンテンツを変更する
+    document.getElementById('currentPlayerInfo').innerHTML = 'Turn : <span id="p1color">1 Player</span>';
+
+  </script>
+</body>
+</html>
